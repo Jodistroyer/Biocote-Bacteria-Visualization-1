@@ -59,6 +59,16 @@
             width: 100vh;   /* swapped because we rotate */
             height: 100vw;
             transform: rotate(90deg) translateY(-100%);
+            /*
+              In forced-landscape mode, screen X corresponds to local Y (vertical),
+              and screen Y corresponds to local X (horizontal). Remap gutters so:
+              - left gutter (screen-left reserved) shifts content right => padding-top
+              - bottom gutter (screen-bottom reserved) shifts content up => padding-right
+            */
+            padding-left: 0;
+            padding-bottom: 0;
+            padding-top: var(--left-gutter);
+            padding-right: var(--bottom-gutter);
         }
         #instructions {
             position: absolute;
