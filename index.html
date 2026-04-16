@@ -2,11 +2,59 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Room with Bacteria Visualization - First Person</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>How Dirty Is Your Toilet? — Interactive Germs Visualization (CFU Dataset)</title>
+
+    <meta name="description" content="A playful interactive 3D visualization of a bacteria (CFU) dataset from common toilet surfaces. Explore fixtures, compare germ levels, and see how dirty a toilet can be." />
+    <meta name="robots" content="index,follow" />
+    <meta name="theme-color" content="#000000" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="biocotelogo.png" type="image/png" />
+    <link rel="apple-touch-icon" href="biocotelogo.png" />
+
+    <!-- Social preview (Open Graph / Twitter) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Dirty Is Your Toilet? — Interactive Germs Visualization" />
+    <meta property="og:description" content="A fun interactive 3D visualization of a bacteria (CFU) dataset from toilet surfaces. Explore fixtures and compare germ levels." />
+    <meta property="og:image" content="biocotelogo.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="How Dirty Is Your Toilet? — Interactive Germs Visualization" />
+    <meta name="twitter:description" content="Explore a 3D toilet and see bacteria (CFU) levels across surfaces in this playful dataset visualization." />
+    <meta name="twitter:image" content="biocotelogo.png" />
+
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "How Dirty Is Your Toilet?",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "description": "A playful interactive 3D visualization of a bacteria (CFU) dataset from common toilet surfaces. Explore fixtures and compare germ levels.",
+      "image": "biocotelogo.png"
+    }
+    </script>
     <style>
-        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif;}
+        html, body { width: 100%; height: 100%; }
+        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; touch-action: none; }
         canvas { display: block; }
+
+        /* Rotatable viewport wrapper (used to force "landscape" on phones) */
+        #app-viewport {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            transform-origin: top left;
+        }
+        #app-viewport.force-landscape {
+            width: 100vh;   /* swapped because we rotate */
+            height: 100vw;
+            transform: rotate(90deg) translateY(-100%);
+        }
         #instructions {
             position: absolute;
             top: 10px;
@@ -65,6 +113,10 @@
             font-size: 38px;
             font-weight: bold;
             color: #00ffcc;
+        }
+        .cfu-value {
+            font-size: 38px;
+            font-weight: bold;
         }
         #start-overlay {
         position: fixed;
@@ -235,20 +287,142 @@
         #exploration-toggle.active {
             background-color: rgba(50, 150, 50, 0.7);
         }
+
+        /* Mobile UI scaling (buttons, tooltips, descriptions, instructions) */
+        body.is-mobile #instructions {
+            font-size: clamp(10px, 2.6vw, 16px);
+            padding: clamp(6px, 1.6vw, 10px);
+            max-width: calc(100% - 20px);
+        }
+        body.is-mobile #navigation-controls {
+            bottom: clamp(10px, 2.5vw, 20px);
+            right: clamp(10px, 2.5vw, 20px);
+            gap: clamp(6px, 1.6vw, 10px);
+        }
+        body.is-mobile #navigation-controls button {
+            font-size: clamp(14px, 3.8vw, 22px);
+            padding: clamp(8px, 2.2vw, 12px) clamp(12px, 3.2vw, 18px);
+            border-width: clamp(2px, 0.6vw, 3px);
+        }
+        body.is-mobile #exploration-toggle {
+            top: clamp(8px, 2vw, 10px);
+            right: clamp(10px, 2.5vw, 20px);
+            font-size: clamp(14px, 3.8vw, 22px);
+            padding: clamp(8px, 2.2vw, 10px) clamp(10px, 2.8vw, 14px);
+            border-width: clamp(2px, 0.6vw, 3px);
+        }
+
+        body.is-mobile #description-box {
+            left: clamp(10px, 2.5vw, 20px);
+            bottom: clamp(10px, 2.5vw, 20px);
+            width: clamp(220px, 48vw, 320px);
+            padding: clamp(10px, 2.5vw, 15px);
+            font-size: clamp(14px, 3.2vw, 20px);
+            border-radius: clamp(6px, 1.6vw, 8px);
+        }
+        body.is-mobile #fixture-title {
+            font-size: clamp(18px, 4.4vw, 28px);
+        }
+        body.is-mobile #cfu-header {
+            font-size: clamp(22px, 5.2vw, 34px);
+        }
+        body.is-mobile .cfu-value {
+            font-size: clamp(18px, 4.8vw, 30px);
+        }
+
+        body.is-mobile #tooltip-modal {
+            max-width: clamp(220px, 70vw, 320px);
+            font-size: clamp(13px, 3.4vw, 18px);
+            padding: clamp(10px, 2.4vw, 14px) clamp(12px, 2.8vw, 16px);
+            border-width: clamp(2px, 0.6vw, 3px);
+        }
+        body.is-mobile #tooltip-next {
+            font-size: clamp(12px, 3.2vw, 16px);
+            padding: clamp(6px, 1.8vw, 8px) clamp(10px, 2.6vw, 12px);
+        }
+
+        /* Intro overlay: responsive, never overflows */
+        #start-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            padding: max(18px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+                     max(18px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+            box-sizing: border-box;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* critical: no scroll/overflow */
+        }
+        #intro-fit {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: min(900px, 100%);
+            max-height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            transform-origin: center;
+            will-change: transform;
+        }
+        #start-overlay.compact #intro-fit {
+            gap: 10px;
+        }
+        #intro-copy {
+            pointer-events: none;
+            text-align: center;
+            color: white;
+        }
+        #intro-logo {
+            width: clamp(96px, 18vw, 150px);
+            height: auto;
+            border-radius: 10px;
+        }
+        #start-overlay.compact #intro-logo {
+            width: clamp(80px, 14vw, 120px);
+        }
+        #main-title {
+            font-size: clamp(28px, 5.4vw, 60px);
+            line-height: 1.05;
+            margin: 10px 0 6px;
+        }
+        #start-overlay.compact #main-title {
+            margin: 6px 0 4px;
+        }
+        #main-description {
+            font-size: clamp(14px, 2.6vw, 26px);
+            line-height: 1.25;
+            margin: 0;
+        }
+        /* Compact mobile: keep line breaks, but compress <br><br> into <br> */
+        #start-overlay.compact #main-description br + br {
+            display: none;
+        }
+        #overlay-next-button {
+            margin-top: 0;
+            pointer-events: auto;
+            z-index: 10000;
+            font-size: clamp(22px, 6vw, 50px);
+            padding: clamp(8px, 1.6vw, 10px) clamp(14px, 2.6vw, 20px);
+        }
     </style>
 </head>
 <body>
+    <div id="app-viewport">
     <div id="instructions">
-        WASD: Move | Mouse: Look | Space: Jump | Shift: Run | Esc: Unlock Pointer | Click to Lock Pointer
+        WASD: Move | Mouse: Look | Space: Jump | Esc: Unlock Pointer | Click to Lock Pointer
     </div>
 
     <!-- Start Intro Overlay -->
-    <div id="start-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column;
-        justify-content: center; align-items: center; z-index: 9999;">
-
-        <div style="pointer-events: none; text-align: center; color: white;">
-            <img src="biocotelogo.png" alt="Description of your image" style="width: 150px; height: auto; border-radius: 10px;">
+    <div id="start-overlay">
+        <div id="intro-fit">
+        <div id="intro-copy">
+            <img id="intro-logo" src="biocotelogo.png" alt="Biocote logo">
             <h1 id="main-title">How Dirty Is Your Toilet?</h1>
             <p id="main-description">
                 Step into a microscopic world inside the toilet.<br><br>
@@ -258,15 +432,16 @@
             </p>
         </div>
 
-        <button id="overlay-next-button" style="margin-top: 20px; pointer-events: auto; z-index: 10000;">
+        <button id="overlay-next-button">
             Explore
         </button>
+        </div>
     </div>
 
     <!-- Tooltip -->
     <div id="tooltip-modal" style="display: none;">
         <div id="tooltip-text"></div>
-        <button id="tooltip-next">OK</button>
+        <button id="tooltip-next">NEXT</button>
     </div>
 
     <!-- Ripple effect container -->
@@ -290,7 +465,8 @@
     </div>
     
     <button id="exploration-toggle">Toggle Free Exploration: ON</button>
-    
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
@@ -315,11 +491,96 @@
         const roomHeight = 4;
         const roomDepth = 3;
 
-        // Crosshair Setup
-        const crosshair = document.createElement('div');
-        crosshair.id = 'crosshair';
-        crosshair.classList.add('crosshair');
-        document.body.appendChild(crosshair);
+        const appViewport = document.getElementById('app-viewport');
+
+        function isMobileDevice() {
+            return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        }
+
+        function getEffectiveViewportSize() {
+            const isPortrait = window.innerHeight > window.innerWidth;
+            const shouldForceLandscape = isMobileDevice() && isPortrait;
+            return shouldForceLandscape
+                ? { width: window.innerHeight, height: window.innerWidth, shouldForceLandscape }
+                : { width: window.innerWidth, height: window.innerHeight, shouldForceLandscape: false };
+        }
+
+        function applyForcedLandscapeIfNeeded() {
+            if (!appViewport) return;
+            const { shouldForceLandscape } = getEffectiveViewportSize();
+            appViewport.classList.toggle('force-landscape', shouldForceLandscape);
+            document.body.classList.toggle('force-landscape', shouldForceLandscape);
+            document.body.classList.toggle('is-mobile', isMobileDevice());
+        }
+
+        function fitIntroOverlayToViewport() {
+            const overlay = document.getElementById('start-overlay');
+            const introFit = document.getElementById('intro-fit');
+            if (!overlay || !introFit) return;
+            if (overlay.style.display === 'none') return;
+
+            const { width: vw, height: vh } = getEffectiveViewportSize();
+
+            const minReadableScale = 0.85;
+
+            const measureAndScale = () => {
+                const rect = introFit.getBoundingClientRect();
+                const w = rect.width || introFit.offsetWidth || 1;
+                const h = rect.height || introFit.offsetHeight || 1;
+                const needed = Math.min(1, vw / w, vh / h);
+                return needed;
+            };
+
+            // Pass 1: normal layout
+            overlay.classList.remove('compact');
+            introFit.style.transform = 'translate(-50%, -50%) scale(1)';
+
+            requestAnimationFrame(() => {
+                let needed = measureAndScale();
+
+                // If we'd have to shrink too much, switch to compact layout first.
+                if (needed < minReadableScale) {
+                    overlay.classList.add('compact');
+                    introFit.style.transform = 'translate(-50%, -50%) scale(1)';
+                    requestAnimationFrame(() => {
+                        needed = measureAndScale();
+                        const scale = Math.min(1, Math.max(minReadableScale, needed));
+                        introFit.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                    });
+                    return;
+                }
+
+                const scale = Math.min(1, Math.max(minReadableScale, needed));
+                introFit.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            });
+        }
+
+        function clientPointToViewportLocal(xClient, yClient) {
+            if (!appViewport) return { x: xClient, y: yClient };
+            const vpRect = appViewport.getBoundingClientRect();
+            const xRel = xClient - vpRect.left;
+            const yRel = yClient - vpRect.top;
+
+            // In forced-landscape mode we rotate the entire viewport:
+            // transform: rotate(90deg) translateY(-100%) with origin top-left
+            // Inverse mapping (viewport -> local): localX = yRel, localY = H - xRel
+            if (appViewport.classList.contains('force-landscape')) {
+                const H = appViewport.clientHeight || vpRect.height;
+                return { x: yRel, y: H - xRel };
+            }
+
+            return { x: xRel, y: yRel };
+        }
+
+        function clientRectToViewportLocalRect(rect) {
+            const p1 = clientPointToViewportLocal(rect.left, rect.top);
+            const p2 = clientPointToViewportLocal(rect.right, rect.bottom);
+            const left = Math.min(p1.x, p2.x);
+            const right = Math.max(p1.x, p2.x);
+            const top = Math.min(p1.y, p2.y);
+            const bottom = Math.max(p1.y, p2.y);
+            return { left, right, top, bottom, width: right - left, height: bottom - top };
+        }
 
         // Setup Containers
         let raycaster, mouse;
@@ -412,21 +673,28 @@
         animate();
 
         function init() {
+            applyForcedLandscapeIfNeeded();
+            fitIntroOverlayToViewport();
             
             // Scene setup
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0xcccccc);
 
             // Camera setup
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const { width: vw, height: vh } = getEffectiveViewportSize();
+            camera = new THREE.PerspectiveCamera(75, vw / vh, 0.1, 1000);
             camera.position.set(0, 1.7, 1); // Start slightly back
 
             // Renderer setup
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(vw, vh);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
-            document.body.appendChild(renderer.domElement);
+            if (appViewport) {
+                appViewport.appendChild(renderer.domElement);
+            } else {
+                document.body.appendChild(renderer.domElement);
+            }
 
             // --- Raycaster and Highlight Material Setup ---
             raycaster = new THREE.Raycaster();
@@ -443,11 +711,11 @@
             }
 
             // --- First person controls setup ---
-            controls = new THREE.PointerLockControls(camera, document.body);
+            controls = new THREE.PointerLockControls(camera, appViewport || document.body);
             scene.add(controls.getObject()); // Add camera group to scene
 
             // Click to start controls
-            document.addEventListener('click', function(event) {
+            (appViewport || document).addEventListener('click', function(event) {
                 const overlay = document.getElementById('start-overlay');
                 
                 // If overlay is visible, ignore click
@@ -463,6 +731,9 @@
             document.getElementById("overlay-next-button").addEventListener("click", () => {
             document.getElementById("start-overlay").style.display = "none";
             showTooltipStep(0);
+            if (screen.orientation && typeof screen.orientation.lock === 'function') {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
 
 
             // --- Audio Setup ---
@@ -544,6 +815,7 @@
             target.classList.add('highlight-target');
 
             const rect = target.getBoundingClientRect();
+            const localRect = clientRectToViewportLocalRect(rect);
             const tooltip = document.getElementById("tooltip-modal");
             const text = document.getElementById("tooltip-text");
             const tooltipNextButton = document.getElementById("tooltip-next"); // Get the next button
@@ -562,20 +834,20 @@
             const padding = 10;
             switch (pos) {
                 case 'top':
-                    tooltip.style.bottom = (window.innerHeight - rect.top + padding) + 'px';
-                    tooltip.style.left = (rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px';
+                    tooltip.style.top = (localRect.top - padding - tooltip.offsetHeight) + 'px';
+                    tooltip.style.left = (localRect.left + localRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
                     break;
                 case 'bottom':
-                    tooltip.style.top = (rect.bottom + padding) + 'px';
-                    tooltip.style.left = (rect.left + rect.width/2 - tooltip.offsetWidth/2) + 'px';
+                    tooltip.style.top = (localRect.bottom + padding) + 'px';
+                    tooltip.style.left = (localRect.left + localRect.width / 2 - tooltip.offsetWidth / 2) + 'px';
                     break;
                 case 'left':
-                    tooltip.style.top = (rect.top + rect.height/2 - tooltip.offsetHeight/2) + 'px';
-                    tooltip.style.right = (window.innerWidth - rect.left + padding) + 'px';
+                    tooltip.style.top = (localRect.top + localRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
+                    tooltip.style.left = (localRect.left - padding - tooltip.offsetWidth) + 'px';
                     break;
                 case 'right':
-                    tooltip.style.top = (rect.top + rect.height/2 - tooltip.offsetHeight/2) + 'px';
-                    tooltip.style.left = (rect.right + padding) + 'px';
+                    tooltip.style.top = (localRect.top + localRect.height / 2 - tooltip.offsetHeight / 2) + 'px';
+                    tooltip.style.left = (localRect.right + padding) + 'px';
                     break;
             }
 
@@ -602,10 +874,11 @@
             // Center position for the ripples
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
+            const localCenter = clientPointToViewportLocal(centerX, centerY);
             
             // Position the ripple container
-            rippleContainer.style.left = centerX + 'px';
-            rippleContainer.style.top = centerY + 'px';
+            rippleContainer.style.left = localCenter.x + 'px';
+            rippleContainer.style.top = localCenter.y + 'px';
             
             // Create multiple ripples for a continuous effect
             for (let i = 0; i < 3; i++) {
@@ -640,6 +913,7 @@
 
             // Handle window resize
             window.addEventListener('resize', onWindowResize);
+            window.addEventListener('orientationchange', onWindowResize);
         }
 
 // --- Bacteria Visualization Functions ---
@@ -904,12 +1178,27 @@ function updateAllBacteriaVisualizations() {
 
 function setupBacteriaGUI() {
     const gui = new dat.GUI();
+    window.__bacteriaGui = gui;
+
+    // dat.GUI inserts into <body> by default; move it into the rotatable viewport
+    if (appViewport) {
+        appViewport.appendChild(gui.domElement);
+    }
+
     gui.domElement.style.position = 'absolute';
     gui.domElement.style.top = '60px';
     gui.domElement.style.left = '10px';
-    // Scale down the GUI to 75%
-    gui.domElement.style.transform = 'scale(0.75)';
     gui.domElement.style.transformOrigin = 'top left';
+    gui.domElement.style.maxHeight = 'calc(100% - 80px)';
+    gui.domElement.style.overflowY = 'auto';
+
+    function updateGuiScaleToFit() {
+        const { width: vw } = getEffectiveViewportSize();
+        const scale = Math.min(0.75, Math.max(0.48, vw / 900));
+        gui.domElement.style.transform = `scale(${scale})`;
+    }
+    window.__updateBacteriaGuiScaleToFit = updateGuiScaleToFit;
+    updateGuiScaleToFit();
     
 
     const bacteriaFolder = gui.addFolder('Bacteria Levels');
@@ -928,7 +1217,10 @@ function setupBacteriaGUI() {
         }
     }
 
-    bacteriaFolder.open();
+    // Desktop: open by default. Mobile: start collapsed (title remains clickable).
+    if (!isMobileDevice()) {
+        bacteriaFolder.open();
+    }
 
     // Helper function to update slider bar color
     function updateSliderColor(controller, value) {
@@ -1834,7 +2126,7 @@ function showDescription(text, fixtureName) {
     }
 
     const formattedText = text
-      .replace(/\*\*CFU: (.*?)\*\*/, `<strong style="color: ${cfuColor}; font-size: 38px;">CFU: $1</strong>`)
+      .replace(/\*\*CFU: (.*?)\*\*/, `<strong class="cfu-value" style="color: ${cfuColor};">CFU: $1</strong>`)
       .replace(/\n/g, '<br>');
     
     descriptionTextElement.innerHTML = formattedText;
@@ -1883,9 +2175,15 @@ function hideDescription() {
 
         // --- Utility Functions ---
         function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            applyForcedLandscapeIfNeeded();
+            const { width: vw, height: vh } = getEffectiveViewportSize();
+            camera.aspect = vw / vh;
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(vw, vh);
+            if (typeof window.__updateBacteriaGuiScaleToFit === 'function') {
+                window.__updateBacteriaGuiScaleToFit();
+            }
+            fitIntroOverlayToViewport();
         }
 
         // --- Initialize DOM elements ---
