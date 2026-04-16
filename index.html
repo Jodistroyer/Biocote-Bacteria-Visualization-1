@@ -49,6 +49,9 @@
             height: 100vh;
             overflow: hidden;
             transform-origin: top left;
+            --left-gutter: 0px; /* reserved space (e.g. left search tab) */
+            padding-left: var(--left-gutter);
+            box-sizing: border-box;
         }
         #app-viewport.force-landscape {
             width: 100vh;   /* swapped because we rotate */
@@ -492,6 +495,21 @@
         const roomDepth = 3;
 
         const appViewport = document.getElementById('app-viewport');
+        const urlParams = new URLSearchParams(window.location.search);
+
+        function getLeftGutterPx() {
+            const param = Number(urlParams.get('leftGutter') || 0);
+            const fromVisualViewport = (window.visualViewport && typeof window.visualViewport.offsetLeft === 'number')
+                ? Math.max(0, window.visualViewport.offsetLeft)
+                : 0;
+            const gutter = Math.max(0, isFinite(param) ? param : 0, fromVisualViewport);
+            return Math.round(gutter);
+        }
+
+        function applyLeftGutter() {
+            if (!appViewport) return;
+            appViewport.style.setProperty('--left-gutter', `${getLeftGutterPx()}px`);
+        }
 
         function isMobileDevice() {
             return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -500,13 +518,21 @@
         function getEffectiveViewportSize() {
             const isPortrait = window.innerHeight > window.innerWidth;
             const shouldForceLandscape = isMobileDevice() && isPortrait;
-            return shouldForceLandscape
+            const leftGutter = getLeftGutterPx();
+            const raw = shouldForceLandscape
                 ? { width: window.innerHeight, height: window.innerWidth, shouldForceLandscape }
                 : { width: window.innerWidth, height: window.innerHeight, shouldForceLandscape: false };
+            return {
+                width: Math.max(1, raw.width - leftGutter),
+                height: raw.height,
+                shouldForceLandscape: raw.shouldForceLandscape,
+                leftGutter
+            };
         }
 
         function applyForcedLandscapeIfNeeded() {
             if (!appViewport) return;
+            applyLeftGutter();
             const { shouldForceLandscape } = getEffectiveViewportSize();
             appViewport.classList.toggle('force-landscape', shouldForceLandscape);
             document.body.classList.toggle('force-landscape', shouldForceLandscape);
