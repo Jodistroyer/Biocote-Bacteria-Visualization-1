@@ -50,7 +50,9 @@
             overflow: hidden;
             transform-origin: top left;
             --left-gutter: 0px; /* reserved space (e.g. left search tab) */
+            --bottom-gutter: 0px; /* reserved space (e.g. Android bottom UI tab) */
             padding-left: var(--left-gutter);
+            padding-bottom: var(--bottom-gutter);
             box-sizing: border-box;
         }
         #app-viewport.force-landscape {
@@ -298,7 +300,7 @@
             max-width: calc(100% - 20px);
         }
         body.is-mobile #navigation-controls {
-            bottom: clamp(10px, 2.5vw, 20px);
+            bottom: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter));
             right: clamp(10px, 2.5vw, 20px);
             gap: clamp(6px, 1.6vw, 10px);
         }
@@ -317,7 +319,7 @@
 
         body.is-mobile #description-box {
             left: clamp(10px, 2.5vw, 20px);
-            bottom: clamp(10px, 2.5vw, 20px);
+            bottom: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter));
             width: clamp(220px, 48vw, 320px);
             padding: clamp(10px, 2.5vw, 15px);
             font-size: clamp(14px, 3.2vw, 20px);
@@ -506,9 +508,24 @@
             return Math.round(gutter);
         }
 
+        function getBottomGutterPx() {
+            const param = Number(urlParams.get('bottomGutter') || 0);
+            // On some Android browsers, visualViewport.height excludes the bottom UI bar.
+            const fromVisualViewport = (window.visualViewport && typeof window.visualViewport.height === 'number')
+                ? Math.max(0, window.innerHeight - window.visualViewport.height - (window.visualViewport.offsetTop || 0))
+                : 0;
+            const gutter = Math.max(0, isFinite(param) ? param : 0, fromVisualViewport);
+            return Math.round(gutter);
+        }
+
         function applyLeftGutter() {
             if (!appViewport) return;
             appViewport.style.setProperty('--left-gutter', `${getLeftGutterPx()}px`);
+        }
+
+        function applyBottomGutter() {
+            if (!appViewport) return;
+            appViewport.style.setProperty('--bottom-gutter', `${getBottomGutterPx()}px`);
         }
 
         function isMobileDevice() {
@@ -519,20 +536,23 @@
             const isPortrait = window.innerHeight > window.innerWidth;
             const shouldForceLandscape = isMobileDevice() && isPortrait;
             const leftGutter = getLeftGutterPx();
+            const bottomGutter = getBottomGutterPx();
             const raw = shouldForceLandscape
                 ? { width: window.innerHeight, height: window.innerWidth, shouldForceLandscape }
                 : { width: window.innerWidth, height: window.innerHeight, shouldForceLandscape: false };
             return {
                 width: Math.max(1, raw.width - leftGutter),
-                height: raw.height,
+                height: Math.max(1, raw.height - bottomGutter),
                 shouldForceLandscape: raw.shouldForceLandscape,
-                leftGutter
+                leftGutter,
+                bottomGutter
             };
         }
 
         function applyForcedLandscapeIfNeeded() {
             if (!appViewport) return;
             applyLeftGutter();
+            applyBottomGutter();
             const { shouldForceLandscape } = getEffectiveViewportSize();
             appViewport.classList.toggle('force-landscape', shouldForceLandscape);
             document.body.classList.toggle('force-landscape', shouldForceLandscape);
