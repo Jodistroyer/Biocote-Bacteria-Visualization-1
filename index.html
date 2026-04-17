@@ -634,9 +634,15 @@
             if (!overlay || !introFit) return;
             if (overlay.style.display === 'none') return;
 
-            ensureDesignSize();
-            const vw = __designW;
-            const vh = __designH;
+            // Fit to the *actual overlay content box* (accounts for safe-area padding),
+            // so the Explore button never gets clipped in mobile landscape.
+            const cs = window.getComputedStyle(overlay);
+            const padL = parseFloat(cs.paddingLeft) || 0;
+            const padR = parseFloat(cs.paddingRight) || 0;
+            const padT = parseFloat(cs.paddingTop) || 0;
+            const padB = parseFloat(cs.paddingBottom) || 0;
+            const vw = Math.max(1, (overlay.clientWidth || 1) - padL - padR);
+            const vh = Math.max(1, (overlay.clientHeight || 1) - padT - padB);
 
             const minReadableScale = 0.85;
 
