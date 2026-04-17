@@ -593,13 +593,13 @@
             ensureDesignSize();
             const { width: vw, height: vh, topGutter } = getEffectiveViewportSize();
             const availW = Math.max(1, vw);
-            const availH = Math.max(1, vh - topGutter);
-
             const isLandscapeNow = window.innerWidth >= window.innerHeight;
-            // In landscape, browsers often steal a bit of usable height for UI bars.
-            // Apply a small safety shrink so the bottom never clips.
-            const safety = isLandscapeNow ? 0.8 : 1;
-            const scale = Math.min(availW / __designW, availH / __designH) * safety;
+            // In landscape on mobile, the top browser UI can steal visible space and effectively
+            // "push down" the content; reserve that space so we scale down instead of clipping.
+            const reservedTop = isLandscapeNow ? Math.max(0, topGutter) : 0;
+            const availH = Math.max(1, vh - reservedTop);
+
+            const scale = Math.min(availW / __designW, availH / __designH);
             const stageW = __designW * scale;
             const stageH = __designH * scale;
             const offsetX = Math.round((availW - stageW) / 2);
