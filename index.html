@@ -562,12 +562,11 @@
             const leftGutter = getLeftGutterPx();
             const bottomGutter = getBottomGutterPx();
             const topGutter = getTopGutterPx();
-            const rawWidth = (window.visualViewport && typeof window.visualViewport.width === 'number')
-                ? window.visualViewport.width
-                : window.innerWidth;
-            const rawHeight = (window.visualViewport && typeof window.visualViewport.height === 'number')
-                ? window.visualViewport.height
-                : window.innerHeight;
+            // Use innerWidth/innerHeight as the baseline, then subtract gutters.
+            // (Using visualViewport.* here while also subtracting bottomGutter can double-count
+            // browser UI space and cause clipping in landscape.)
+            const rawWidth = window.innerWidth;
+            const rawHeight = window.innerHeight;
             return {
                 width: Math.max(1, rawWidth - leftGutter),
                 height: Math.max(1, rawHeight - bottomGutter),
@@ -578,12 +577,15 @@
         }
 
         function ensureDesignSize() {
-            if (__designW && __designH) return;
             const w = Math.max(1, window.innerWidth || 1);
             const h = Math.max(1, window.innerHeight || 1);
-            // Lock the "design" coordinate system to a landscape baseline for this session.
-            __designW = Math.max(w, h);
-            __designH = Math.min(w, h);
+            const sw = Math.max(1, (screen && screen.width) ? screen.width : 1);
+            const sh = Math.max(1, (screen && screen.height) ? screen.height : 1);
+            // Pick a stable landscape design size that doesn't depend on initial orientation.
+            const longSide = Math.max(w, h, sw, sh);
+            const shortSide = Math.max(1, Math.min(w, h, sw, sh));
+            __designW = __designW ? Math.max(__designW, longSide) : longSide;
+            __designH = __designH ? Math.max(__designH, shortSide) : shortSide;
         }
 
         function applyViewportLayout() {
@@ -599,7 +601,12 @@
             const reservedTop = isLandscapeNow ? Math.max(0, topGutter) : 0;
             const availH = Math.max(1, vh - reservedTop);
 
-            const scale = Math.min(availW / __designW, availH / __designH);
+            let scale = Math.min(availW / __designW, availH / __designH);
+            // Mobile landscape: intentionally don't fill the screen (prevents "cramped" look
+            // and gives breathing room around the canvas).
+            if (isMobileDevice() && isLandscapeNow) {
+                scale *= 0.92;
+            }
             const stageW = __designW * scale;
             const stageH = __designH * scale;
             const offsetX = Math.round((availW - stageW) / 2);
