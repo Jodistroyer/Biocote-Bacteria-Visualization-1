@@ -48,27 +48,26 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
-            transform-origin: top left;
             --left-gutter: 0px; /* reserved space (e.g. left search tab) */
             --bottom-gutter: 0px; /* reserved space (e.g. Android bottom UI tab) */
             padding-left: var(--left-gutter);
             padding-bottom: var(--bottom-gutter);
             box-sizing: border-box;
         }
-        #app-viewport.force-landscape {
-            width: 100vh;   /* swapped because we rotate */
-            height: 100vw;
-            transform: rotate(90deg) translateY(-100%);
-            /*
-              In forced-landscape mode, screen X corresponds to local Y (vertical),
-              and screen Y corresponds to local X (horizontal). Remap gutters so:
-              - left gutter (screen-left reserved) shifts content right => padding-top
-              - bottom gutter (screen-bottom reserved) shifts content up => padding-right
-            */
-            padding-left: 0;
-            padding-bottom: 0;
-            padding-top: var(--left-gutter);
-            padding-right: var(--bottom-gutter);
+        /*
+          Stable layout wrapper:
+          We keep a fixed "design" coordinate system inside #app-stage and scale it
+          uniformly to fit any phone orientation. This prevents orientation changes
+          from reflowing/rotating and breaking absolute positioning.
+        */
+        #app-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100px;   /* real size is set by JS */
+            height: 100px;  /* real size is set by JS */
+            transform-origin: top left;
+            will-change: transform;
         }
         #instructions {
             position: absolute;
@@ -429,6 +428,7 @@
 </head>
 <body>
     <div id="app-viewport">
+    <div id="app-stage">
     <div id="instructions">
         WASD: Move | Mouse: Look | Space: Jump | Esc: Unlock Pointer | Click to Lock Pointer
     </div>
@@ -481,6 +481,7 @@
     
     <button id="exploration-toggle">Toggle Free Exploration: ON</button>
     </div>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
@@ -507,7 +508,13 @@
         const roomDepth = 3;
 
         const appViewport = document.getElementById('app-viewport');
+        const appStage = document.getElementById('app-stage');
         const urlParams = new URLSearchParams(window.location.search);
+        let __layoutScale = 1;
+        let __layoutOffsetX = 0;
+        let __layoutOffsetY = 0;
+        let __designW = null;
+        let __designH = null;
 
         function getLeftGutterPx() {
             const param = Number(urlParams.get('leftGutter') || 0);
@@ -542,34 +549,64 @@
             return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         }
 
-        function getEffectiveViewportSize() {
-            // Use visualViewport when available to better match the *visible* area on mobile
-            // (address bars / toolbars can change the effective height).
-            const vv = window.visualViewport;
-            const rawWidth = (vv && typeof vv.width === 'number') ? vv.width : window.innerWidth;
-            const rawHeight = (vv && typeof vv.height === 'number') ? vv.height : window.innerHeight;
+        function getTopGutterPx() {
+            const fromVisualViewport = (window.visualViewport && typeof window.visualViewport.offsetTop === 'number')
+                ? Math.max(0, window.visualViewport.offsetTop)
+                : 0;
+            return Math.round(fromVisualViewport);
+        }
 
+        function getEffectiveViewportSize() {
             const leftGutter = getLeftGutterPx();
             const bottomGutter = getBottomGutterPx();
-
+            const topGutter = getTopGutterPx();
+            const rawWidth = (window.visualViewport && typeof window.visualViewport.width === 'number')
+                ? window.visualViewport.width
+                : window.innerWidth;
+            const rawHeight = (window.visualViewport && typeof window.visualViewport.height === 'number')
+                ? window.visualViewport.height
+                : window.innerHeight;
             return {
                 width: Math.max(1, rawWidth - leftGutter),
                 height: Math.max(1, rawHeight - bottomGutter),
-                // We no longer rotate the viewport to "force landscape" on phones,
-                // because that breaks positioning when the device rotates.
-                shouldForceLandscape: false,
+                topGutter,
                 leftGutter,
                 bottomGutter
             };
         }
 
-        function applyForcedLandscapeIfNeeded() {
-            if (!appViewport) return;
+        function ensureDesignSize() {
+            if (__designW && __designH) return;
+            const w = Math.max(1, window.innerWidth || 1);
+            const h = Math.max(1, window.innerHeight || 1);
+            // Lock the "design" coordinate system to a landscape baseline for this session.
+            __designW = Math.max(w, h);
+            __designH = Math.min(w, h);
+        }
+
+        function applyViewportLayout() {
+            if (!appViewport || !appStage) return;
             applyLeftGutter();
             applyBottomGutter();
-            const { shouldForceLandscape } = getEffectiveViewportSize();
-            appViewport.classList.toggle('force-landscape', shouldForceLandscape);
-            document.body.classList.toggle('force-landscape', shouldForceLandscape);
+            ensureDesignSize();
+            const { width: vw, height: vh, topGutter } = getEffectiveViewportSize();
+            const availW = Math.max(1, vw);
+            const availH = Math.max(1, vh - topGutter);
+
+            const scale = Math.min(availW / __designW, availH / __designH);
+            const stageW = __designW * scale;
+            const stageH = __designH * scale;
+            const offsetX = Math.round((availW - stageW) / 2);
+            const offsetY = Math.round(topGutter + (availH - stageH) / 2);
+
+            __layoutScale = scale;
+            __layoutOffsetX = offsetX;
+            __layoutOffsetY = offsetY;
+
+            appStage.style.width = `${__designW}px`;
+            appStage.style.height = `${__designH}px`;
+            appStage.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+
             document.body.classList.toggle('is-mobile', isMobileDevice());
         }
 
@@ -579,7 +616,9 @@
             if (!overlay || !introFit) return;
             if (overlay.style.display === 'none') return;
 
-            const { width: vw, height: vh } = getEffectiveViewportSize();
+            ensureDesignSize();
+            const vw = __designW;
+            const vh = __designH;
 
             const minReadableScale = 0.85;
 
@@ -616,20 +655,12 @@
         }
 
         function clientPointToViewportLocal(xClient, yClient) {
-            if (!appViewport) return { x: xClient, y: yClient };
-            const vpRect = appViewport.getBoundingClientRect();
-            const xRel = xClient - vpRect.left;
-            const yRel = yClient - vpRect.top;
-
-            // In forced-landscape mode we rotate the entire viewport:
-            // transform: rotate(90deg) translateY(-100%) with origin top-left
-            // Inverse mapping (viewport -> local): localX = yRel, localY = H - xRel
-            if (appViewport.classList.contains('force-landscape')) {
-                const H = appViewport.clientHeight || vpRect.height;
-                return { x: yRel, y: H - xRel };
-            }
-
-            return { x: xRel, y: yRel };
+            if (!appStage) return { x: xClient, y: yClient };
+            const stageRect = appStage.getBoundingClientRect();
+            const xRel = xClient - stageRect.left;
+            const yRel = yClient - stageRect.top;
+            const scale = __layoutScale || 1;
+            return { x: xRel / scale, y: yRel / scale };
         }
 
         function clientRectToViewportLocalRect(rect) {
@@ -733,7 +764,7 @@
         animate();
 
         function init() {
-            applyForcedLandscapeIfNeeded();
+            applyViewportLayout();
             fitIntroOverlayToViewport();
             
             // Scene setup
@@ -741,17 +772,18 @@
             scene.background = new THREE.Color(0xcccccc);
 
             // Camera setup
-            const { width: vw, height: vh } = getEffectiveViewportSize();
-            camera = new THREE.PerspectiveCamera(75, vw / vh, 0.1, 1000);
+            ensureDesignSize();
+            camera = new THREE.PerspectiveCamera(75, __designW / __designH, 0.1, 1000);
             camera.position.set(0, 1.7, 1); // Start slightly back
 
             // Renderer setup
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(vw, vh);
+            renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+            renderer.setSize(__designW, __designH, true);
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
-            if (appViewport) {
-                appViewport.appendChild(renderer.domElement);
+            if (appStage) {
+                appStage.appendChild(renderer.domElement);
             } else {
                 document.body.appendChild(renderer.domElement);
             }
@@ -791,8 +823,6 @@
             document.getElementById("overlay-next-button").addEventListener("click", () => {
             document.getElementById("start-overlay").style.display = "none";
             showTooltipStep(0);
-            // Avoid forcing device orientation; it can cause the entire viewport to rotate
-            // and break UI positioning on mobile.
 
 
             // --- Audio Setup ---
@@ -1243,9 +1273,9 @@ function setupBacteriaGUI() {
     const gui = new dat.GUI();
     window.__bacteriaGui = gui;
 
-    // dat.GUI inserts into <body> by default; move it into the rotatable viewport
-    if (appViewport) {
-        appViewport.appendChild(gui.domElement);
+    // dat.GUI inserts into <body> by default; keep it inside the scaled stage
+    if (appStage) {
+        appStage.appendChild(gui.domElement);
     }
 
     gui.domElement.style.position = 'absolute';
@@ -1256,8 +1286,8 @@ function setupBacteriaGUI() {
     gui.domElement.style.overflowY = 'auto';
 
     function updateGuiScaleToFit() {
-        const { width: vw } = getEffectiveViewportSize();
-        const scale = Math.min(0.75, Math.max(0.48, vw / 900));
+        ensureDesignSize();
+        const scale = Math.min(0.75, Math.max(0.48, __designW / 900));
         gui.domElement.style.transform = `scale(${scale})`;
     }
     window.__updateBacteriaGuiScaleToFit = updateGuiScaleToFit;
@@ -2238,11 +2268,12 @@ function hideDescription() {
 
         // --- Utility Functions ---
         function onWindowResize() {
-            applyForcedLandscapeIfNeeded();
-            const { width: vw, height: vh } = getEffectiveViewportSize();
-            camera.aspect = vw / vh;
+            applyViewportLayout();
+            ensureDesignSize();
+            camera.aspect = __designW / __designH;
             camera.updateProjectionMatrix();
-            renderer.setSize(vw, vh);
+            renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+            renderer.setSize(__designW, __designH, true);
             if (typeof window.__updateBacteriaGuiScaleToFit === 'function') {
                 window.__updateBacteriaGuiScaleToFit();
             }
