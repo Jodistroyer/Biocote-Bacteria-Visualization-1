@@ -458,7 +458,7 @@
     <!-- Tooltip -->
     <div id="tooltip-modal" style="display: none;">
         <div id="tooltip-text"></div>
-        <button id="tooltip-next">NEXT</button>
+        <button id="tooltip-next">OK</button>
     </div>
 
     <!-- Ripple effect container -->
@@ -599,7 +599,13 @@
             const stageW = __designW * scale;
             const stageH = __designH * scale;
             const offsetX = Math.round((availW - stageW) / 2);
-            const offsetY = Math.round(topGutter + (availH - stageH) / 2);
+            const isLandscapeNow = window.innerWidth >= window.innerHeight;
+            // Keep the pre-rotation (portrait) look unchanged (centered),
+            // but in landscape, hug the top to avoid the browser top bar
+            // making the composition feel "pushed down".
+            const offsetY = isLandscapeNow
+                ? Math.round(topGutter)
+                : Math.round(topGutter + (availH - stageH) / 2);
 
             __layoutScale = scale;
             __layoutOffsetX = offsetX;
