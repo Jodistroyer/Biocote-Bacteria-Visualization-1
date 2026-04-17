@@ -38,7 +38,7 @@
     </script>
     <style>
         html, body { width: 100%; height: 100%; }
-        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; touch-action: none; }
+        body { margin: 0; overflow: hidden; font-family: Arial, Helvetica, sans-serif; touch-action: none; background: #000; }
         canvas { display: block; }
 
         /* Rotatable viewport wrapper (used to force "landscape" on phones) */
@@ -48,6 +48,7 @@
             width: 100vw;
             height: 100vh;
             overflow: hidden;
+            background: #000;
             --left-gutter: 0px; /* reserved space (e.g. left search tab) */
             --bottom-gutter: 0px; /* reserved space (e.g. Android bottom UI tab) */
             padding-left: var(--left-gutter);
@@ -310,7 +311,7 @@
         }
         body.is-mobile #navigation-controls {
             bottom: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter));
-            right: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter) + 70px);
+            right: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter));
             gap: clamp(6px, 1.6vw, 10px);
         }
         body.is-mobile #navigation-controls button {
@@ -320,7 +321,7 @@
         }
         body.is-mobile #exploration-toggle {
             top: clamp(8px, 2vw, 10px);
-            right: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter) + 70px);
+            right: calc(clamp(10px, 2.5vw, 20px) + var(--bottom-gutter));
             font-size: clamp(14px, 3.8vw, 22px);
             padding: clamp(8px, 2.2vw, 10px) clamp(10px, 2.8vw, 14px);
             border-width: clamp(2px, 0.6vw, 3px);
@@ -443,7 +444,8 @@
                 Step into a microscopic world inside the toilet.<br><br>
                 We're visualizing <strong>Colony Forming Units (CFUs)</strong> — a scientific way to count clusters of live bacteria that can grow and multiply.<br><br>
                 Each glowing spot you see represents a bacterial colony found in common toilet areas.<br><br>
-                Some surfaces may surprise you...<br> <br>(by Wong Jo-Hann)
+                Some surfaces may surprise you...<br> <br>(by Wong Jo-Hann)<br><br>
+                <span style="opacity:0.9;font-size:0.95em;">For the best experience, view on PC.</span>
             </p>
         </div>
 
