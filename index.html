@@ -543,17 +543,21 @@
         }
 
         function getEffectiveViewportSize() {
-            const isPortrait = window.innerHeight > window.innerWidth;
-            const shouldForceLandscape = isMobileDevice() && isPortrait;
+            // Use visualViewport when available to better match the *visible* area on mobile
+            // (address bars / toolbars can change the effective height).
+            const vv = window.visualViewport;
+            const rawWidth = (vv && typeof vv.width === 'number') ? vv.width : window.innerWidth;
+            const rawHeight = (vv && typeof vv.height === 'number') ? vv.height : window.innerHeight;
+
             const leftGutter = getLeftGutterPx();
             const bottomGutter = getBottomGutterPx();
-            const raw = shouldForceLandscape
-                ? { width: window.innerHeight, height: window.innerWidth, shouldForceLandscape }
-                : { width: window.innerWidth, height: window.innerHeight, shouldForceLandscape: false };
+
             return {
-                width: Math.max(1, raw.width - leftGutter),
-                height: Math.max(1, raw.height - bottomGutter),
-                shouldForceLandscape: raw.shouldForceLandscape,
+                width: Math.max(1, rawWidth - leftGutter),
+                height: Math.max(1, rawHeight - bottomGutter),
+                // We no longer rotate the viewport to "force landscape" on phones,
+                // because that breaks positioning when the device rotates.
+                shouldForceLandscape: false,
                 leftGutter,
                 bottomGutter
             };
@@ -787,9 +791,8 @@
             document.getElementById("overlay-next-button").addEventListener("click", () => {
             document.getElementById("start-overlay").style.display = "none";
             showTooltipStep(0);
-            if (screen.orientation && typeof screen.orientation.lock === 'function') {
-                screen.orientation.lock('landscape').catch(() => {});
-            }
+            // Avoid forcing device orientation; it can cause the entire viewport to rotate
+            // and break UI positioning on mobile.
 
 
             // --- Audio Setup ---
@@ -970,6 +973,10 @@
             // Handle window resize
             window.addEventListener('resize', onWindowResize);
             window.addEventListener('orientationchange', onWindowResize);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', onWindowResize);
+                window.visualViewport.addEventListener('scroll', onWindowResize);
+            }
         }
 
 // --- Bacteria Visualization Functions ---
