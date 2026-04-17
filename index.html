@@ -598,7 +598,7 @@
             const isLandscapeNow = window.innerWidth >= window.innerHeight;
             // In landscape, browsers often steal a bit of usable height for UI bars.
             // Apply a small safety shrink so the bottom never clips.
-            const safety = isLandscapeNow ? 0.92 : 1;
+            const safety = isLandscapeNow ? 0.8 : 1;
             const scale = Math.min(availW / __designW, availH / __designH) * safety;
             const stageW = __designW * scale;
             const stageH = __designH * scale;
